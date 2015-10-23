@@ -8,7 +8,9 @@ You will then need to add git to your system environment variables in order to u
 
 ### Clone the project locally
 In a terminal/command line, after in the folder you chose, you have to tap the following line:
-	git clone https://github.com/MikeNkunku/Adv.-DB-Systems-Project.git
+```
+git clone https://github.com/MikeNkunku/Adv.-DB-Systems-Project.git
+```
 
 ## Using Git
 
@@ -16,7 +18,7 @@ In a terminal/command line, after in the folder you chose, you have to tap the f
 * In order to know the name of all Git commands, tap:
 ```
 git help
-	```
+```
 
 * To know how to use a Git command, tap:
 ```
