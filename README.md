@@ -15,12 +15,14 @@ In a terminal/command line, after in the folder you chose, you have to tap the f
 
 ### Help
 * In order to know the name of all Git commands, tap:
-
+	```
 	git help
+	```
 
 * To know how to use a Git command, tap:
-
+	```
 	git <Git_command_name> help
+	```
 
 To resolve conflicts, just follow what Git displays on command line.
 
