@@ -1,15 +1,19 @@
 # Advanced DB Systems Project
 
-## How to start
+## Gettin started
 
 ### Download Git (for Windows users)
 You need to download the matching version for your OS over [here](https://git-scm.com/downloads).
 You will then need to add git to your system environment variables in order to use from the command line.
 
-### Clone the project locally
-In a terminal/command line, after in the folder you chose, you have to tap the following line:
+### Forking the project
+After logging in and being on this page, you have to fork the project so as to have it displayed on your own profile.
+
+### Cloning the project locally
+Go to your profile, then in the project you just forked. You will see on the right a link labelled "HTTPS clone URL".
+Copy the link (I will call it "linked_url") and tap the following command in a terminal/command line:
 ```
-git clone https://github.com/MikeNkunku/Adv.-DB-Systems-Project.git
+git clone linked_url
 ```
 
 ## Using Git
