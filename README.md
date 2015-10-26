@@ -1,6 +1,6 @@
 # Advanced DB Systems Project
 
-## Gettin started
+## Getting started
 
 ### Download Git (for Windows users)
 You need to download the matching version for your OS over [here](https://git-scm.com/downloads).
