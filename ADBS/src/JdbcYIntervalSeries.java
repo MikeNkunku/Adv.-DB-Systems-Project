@@ -23,8 +23,9 @@ public class JdbcYIntervalSeries extends YIntervalSeries {
 	private String constraint;
 	private double ds_start = 0;
 	private double ds_extent = 0;
+	private PreAgregates preAgregates;
 
-	protected int MAX_RESOLUTION = 100;
+	protected int MAX_RESOLUTION = 600;
 
 	public JdbcYIntervalSeries(Comparable key) {
 		super(key);
@@ -164,20 +165,22 @@ public class JdbcYIntervalSeries extends YIntervalSeries {
 		if (start < ds_start || start > ds_start+ds_extent || 
 				start+extent > ds_start+ds_extent ||
 				factor < ds_factor/2 || factor > ds_factor*2 ){
-			System.out.print("update with start, extent, factor, querytime: "+ start+","+extent+","+factor);
+			System.out.print("update with start, extent, factor, querytime: "+
+					start+","+extent+","+factor);
 			this.data.clear();			
 			// load the data
 			Connection con = getConnection();
 			Object obj;
-			if (con==null) return;
+			if(con==null) return; 
 			Statement st;
 			try {
 //				if (quantile==0){
 					// this corresponds to min and max
-					String query = "select div("+xAttribute+","+factor+"), avg("+yAttribute+"), min("+yAttribute+"), max("+yAttribute+") " +
-							"from " + tableName + " " +
-							"where " + xAttribute + ">=" + (start - extent) + " and " + xAttribute + " <= " + (start + 2*extent) + " " +
-							"group by div(" + xAttribute + "," + factor + ")";
+
+					if(preAgregates == null)
+						preAgregates = PreAgregates.create(con, PreAgregates.MinimumMutiplesApproach, 0.1, xAttribute, yAttribute, tableName, 60, MAX_RESOLUTION);
+					String query = preAgregates.createStatement(start,extent);
+
 					st = con.createStatement();
 					long starttime = System.currentTimeMillis();
 			// System.out.println(query);
