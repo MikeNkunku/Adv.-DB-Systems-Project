@@ -1,10 +1,8 @@
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 
-// import java.util.Iterator;
 
 public class PreAgregates{
 	private int[] s;
@@ -16,8 +14,8 @@ public class PreAgregates{
 	int spacing;
 	long xStart, maxResolution;
 
-	public static PreAgregates create(Connection con, int algorithm, double spaceLimit, String xAttribute, String yAttribute, String tableName, 
-	int spacing, int maxResolution) {
+	public static PreAgregates create(Connection con, int algorithm, double spaceLimit, String xAttribute, 
+			String yAttribute, String tableName, int spacing, int maxResolution) {
 		int factorMax = Integer.MAX_VALUE;
 		Statement st;
 		String query;
@@ -31,7 +29,7 @@ public class PreAgregates{
 			ResultSet rs = st.executeQuery(query);
 			if (rs.next())
 				factorMax = (int) (rs.getInt(1) / maxResolution);
-			factorMax = 3000; // Why testing rs if factorMax will stil have that value?
+			factorMax = 3000; // Why testing rs if factorMax will still have that value ?
 			
 			// Create the Preagregate Tables
 			for (int i = 1; i < factorArray.length; i++) {

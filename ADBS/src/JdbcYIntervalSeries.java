@@ -35,9 +35,9 @@ public class JdbcYIntervalSeries extends YIntervalSeries {
 	 * Creates a new dataset (initially empty) using the specified database connection.
 	 * @param con
 	 */
-	public JdbcYIntervalSeries(Comparable key, Connection con){
+	public JdbcYIntervalSeries(Comparable key, Connection con) {
 		super(key);
-		this.con=con;
+		this.con = con;
 	}
 
 	/**
@@ -50,7 +50,7 @@ public class JdbcYIntervalSeries extends YIntervalSeries {
 	 * @param constraint
 	 */
 	public JdbcYIntervalSeries(Comparable key, Connection con, 
-			String xAttribute, String yAttribute, String tableName, String constraint){
+			String xAttribute, String yAttribute, String tableName, String constraint) {
 		super(key);
 		this.con = con;
 		this.xAttribute=xAttribute;
@@ -72,8 +72,8 @@ public class JdbcYIntervalSeries extends YIntervalSeries {
 	 * @param tableName
 	 * @param constraint
 	 */
-	public JdbcYIntervalSeries(Comparable key, String url, String driverName, String user, String password,
-			String xAttribute, String yAttribute, String tableName, String constraint){
+	public JdbcYIntervalSeries(Comparable key, String url, String driverName, String user, 
+			String password, String xAttribute, String yAttribute, String tableName, String constraint) {
 		super(key);
 		this.url = url;
 		this.driverName = driverName;
@@ -92,7 +92,9 @@ public class JdbcYIntervalSeries extends YIntervalSeries {
 	 * @return connection object
 	 */
 	protected Connection getConnection(){
-		if(con==null)
+		
+		// if no connection existing, get one
+		if(con==null) {
 			try {
 				//Register the JDBC driver for MySQL.
 				Class.forName(driverName);
@@ -100,7 +102,10 @@ public class JdbcYIntervalSeries extends YIntervalSeries {
 			} catch(Exception e){
 				e.printStackTrace();
 			}
-			return con;
+		}
+		
+		// whatever, return the connection
+		return con;
 	}
 
 	/**
@@ -111,18 +116,27 @@ public class JdbcYIntervalSeries extends YIntervalSeries {
 	public Range getDomainRange(){
 		long maximumItemCount = 0;
 		long minimumItemCount = 0;
+		
 		Connection con = getConnection();
-		if(con==null) return null;
+		if(con==null) 
+			return null;
+		
 		Statement st;
 		try {
+			// make the query
 			st = con.createStatement();
-			String query = "select min("+xAttribute+") as MIN ,max("+xAttribute+") as MAX from "+tableName;
-			if(constraint!=null && !constraint.isEmpty()) query+= " where "+constraint;
+			String query = "select min(" + xAttribute + ") as MIN ,"
+						 + "max(" + xAttribute + ") as MAX from " + tableName;
+			if(constraint!=null && !constraint.isEmpty())
+				query += " where " + constraint;
+			
+			// get the response
 			ResultSet rs = st.executeQuery(query);
 			rs.next();
+			
+			// retrieve data from response
 			minimumItemCount = rs.getLong(1);
 			maximumItemCount = rs.getLong(2);
-			//			update(minimumItemCount,maximumItemCount);
 		} catch (SQLException e) {
 			e.printStackTrace();
 		}
@@ -137,15 +151,22 @@ public class JdbcYIntervalSeries extends YIntervalSeries {
 	public Range getYRange(){
 		double maximumItemCount = 0;
 		double minimumItemCount = 0;
+		
 		Connection con = getConnection();
-		if(con==null) return null;
+		if(con==null) 
+			return null;
+		
 		Statement st;
 		try {
 			st = con.createStatement();
-			String query = "select min("+yAttribute+") as MIN ,max("+yAttribute+") from "+tableName;
-			if(constraint!=null && !constraint.isEmpty()) query+= " where "+constraint;
+			String query = "select min(" + yAttribute + ") as MIN ,"
+					     + "max(" + yAttribute + ") from " + tableName;
+			if(constraint!=null && !constraint.isEmpty()) 
+				query += " where " + constraint;
+			
 			ResultSet rs = st.executeQuery(query);
 			rs.next();
+			
 			maximumItemCount = rs.getDouble("MAX");
 			minimumItemCount = rs.getDouble("MIN");
 		} catch (SQLException e) {
@@ -164,43 +185,43 @@ public class JdbcYIntervalSeries extends YIntervalSeries {
 		long ds_factor = (long) Math.ceil(ds_extent/MAX_RESOLUTION);
 		if (start < ds_start || start > ds_start+ds_extent || 
 				start+extent > ds_start+ds_extent ||
-				factor < ds_factor/2 || factor > ds_factor*2 ){
-			System.out.print("update with start, extent, factor, querytime: "+
-					start+","+extent+","+factor);
-			this.data.clear();			
+				factor < ds_factor/2 || factor > ds_factor*2 ) {
+			System.out.print("update with start, extent, factor, querytime: "
+							 + start + "," + extent + "," + factor + "\n");
+			this.data.clear();
+			
 			// load the data
 			Connection con = getConnection();
 			Object obj;
-			if(con==null) return; 
+			if(con==null) 
+				return; 
 			Statement st;
 			try {
-//				if (quantile==0){
-					// this corresponds to min and max
+				// this corresponds to min and max
+				if(preAgregates == null)
+					preAgregates = PreAgregates.create(con, PreAgregates.MinimumMutiplesApproach,
+							0.1, xAttribute, yAttribute, tableName, 60, MAX_RESOLUTION);
+				String query = preAgregates.createStatement(start,extent);
 
-					if(preAgregates == null)
-						preAgregates = PreAgregates.create(con, PreAgregates.MinimumMutiplesApproach, 0.1, xAttribute, yAttribute, tableName, 60, MAX_RESOLUTION);
-					String query = preAgregates.createStatement(start,extent);
-
-					st = con.createStatement();
-					long starttime = System.currentTimeMillis();
-			// System.out.println(query);
-					ResultSet rs = st.executeQuery(query);
-					System.out.println(","+(System.currentTimeMillis()-starttime));
-					long prevTime=0;
-					while(rs.next()){
-						long timed = rs.getLong(1)*factor;
-						double pegelAvg = rs.getDouble(2);
-						double pegelLow = rs.getDouble(3);
-						double pegelHigh = rs.getDouble(4);
-						if(prevTime!=timed){
-							obj = new Second(new Date(timed));
-							add(timed, pegelAvg, pegelLow, pegelHigh);
-							prevTime= timed;
-						} else 
-							System.out.println("removed duplicate data at timestampt "+timed);
-					}
-//				} 
-				} catch (SQLException e) {
+				st = con.createStatement();
+				long starttime = System.currentTimeMillis();
+				// System.out.println(query);
+				ResultSet rs = st.executeQuery(query);
+				System.out.println(","+(System.currentTimeMillis()-starttime));
+				long prevTime=0;
+				while(rs.next()){
+					long timed = rs.getLong(1)*factor;
+					double pegelAvg = rs.getDouble(2);
+					double pegelLow = rs.getDouble(3);
+					double pegelHigh = rs.getDouble(4);
+					if(prevTime!=timed) {
+						obj = new Second(new Date(timed));
+						add(timed, pegelAvg, pegelLow, pegelHigh);
+						prevTime= timed;
+					} else 
+						System.out.println("removed duplicate data at timestampt "+timed);
+				}
+			} catch (SQLException e) {
 				e.printStackTrace();
 			}
 			this.ds_start = start-extent;
@@ -208,5 +229,4 @@ public class JdbcYIntervalSeries extends YIntervalSeries {
 		}
 		this.fireSeriesChanged();
 	}
-
 }
