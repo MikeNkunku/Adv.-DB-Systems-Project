@@ -2,15 +2,12 @@ import java.awt.BasicStroke;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.awt.event.AdjustmentEvent;
 import java.awt.event.AdjustmentListener;
 import java.util.Hashtable;
 
 import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
-import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollBar;
@@ -34,10 +31,11 @@ import org.jfree.data.xy.YIntervalSeriesCollection;
 import org.jfree.ui.ApplicationFrame;
 import org.jfree.ui.RefineryUtilities;
 
-public class GraphGui extends ApplicationFrame{
+@SuppressWarnings("serial")
+public class GraphGui extends ApplicationFrame {
 
 	private static class JdbcPanel extends JPanel 
-	implements AdjustmentListener, ChangeListener	{
+		implements AdjustmentListener, ChangeListener {
 
 		private static final int step = 10;
 		private ValueAxis domainAxis;
@@ -45,8 +43,8 @@ public class GraphGui extends ApplicationFrame{
 		private static int preferedHeight = 500;
 		private static int preferedWidth = 270;
 
-
-		private XYDataset createPegelAndelfingen(){
+		
+		private XYDataset createPegelAndelfingen() {
 			YIntervalSeriesCollection timeseriescollection = new YIntervalSeriesCollection();
 			JdbcYIntervalSeries timeseries = new JdbcYIntervalSeries(
 					"Pegel Andelfingen 1",
@@ -90,6 +88,7 @@ public class GraphGui extends ApplicationFrame{
 			return jfreechart;
 		}
 
+		
 		private JScrollBar scrollbar;
 		private NumberAxis rangeAxis;
 		private double factorRange;
