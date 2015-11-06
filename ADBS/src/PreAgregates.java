@@ -14,36 +14,56 @@ public class PreAgregates{
 	int spacing;
 	long xStart, maxResolution;
 
-	public static PreAgregates create(Connection con, int algorithm, double spaceLimit, String xAttribute, 
-			String yAttribute, String tableName, int spacing, int maxResolution) {
-		int factorMax = Integer.MAX_VALUE;
+	public static PreAgregates create(Connection con, String xAttribute, 
+			String yAttribute, String tableName, int maxResolution) {
+		int qtdPoints;
+		int pointI, pointII;
 		Statement st;
 		String query;
 		long xStart = 0;
 		int[] factorArray = {1, 50, 75, 100, 300, 500};
 		
 		try {
-			// Find the maximum possible factor
+			// Find the number of rows in the table
 			st = con.createStatement();
 			query = "SELECT COUNT(*) FROM " + tableName + ";";
 			ResultSet rs = st.executeQuery(query);
 			if (rs.next())
-				factorMax = (int) (rs.getInt(1) / maxResolution);
-			factorMax = 3000; // Why testing rs if factorMax will still have that value ?
+				 qtdPoints = (int) (rs.getInt(1) / maxResolution);
+			else
+			{
+				//It should throw an exception and exit the program
+			}
+
+			//Calculate the spacing betewen two points
+			//timed = xatribute
+			//pegel = yattribute 
+			query = "SELECT "+xAttribute+" FROM "+tableName+" ORDER BY "+xAttribute+" ASC LIMIT 2;"
+			rs = st.executeQuery(query);
+			if (rs.next())
+				 pointI = (int) rs.getInt(1);
+			if (rs.next())
+				 pointII = (int) rs.getInt(1);
+			spacing = pointII - pointI;
+			xStart = (long) pointI;
 			
 			// Create the Preagregate Tables
-			for (int i = 1; i < factorArray.length; i++) {
-				st = con.createStatement();
-				query = "SELECT " + xAttribute + " FROM " + tableName + " ORDER BY " + xAttribute + " LIMIT 1";
-				if (rs.next())
-					xStart = rs.getLong(1);
-				query = "CREATE TABLE " + tableName + factorArray[i] + "(timed bigint, average numeric(10,3), min_value numeric(10,3), max_value numeric(10,3));";
+			int counter;
+			for (int  factor= qtdPoints/(maxResolution*20), counter = 0 ; factor >= 25; factor = factor/2, counter++)
+			{
+				//To make this valid for every table it is necessary to make type independent. So it is not possible to hardcode average numeric(10,3) for example
+				query = "CREATE TABLE " + tableName + factor + "(timed bigint, average numeric(10,3), min_value numeric(10,3), max_value numeric(10,3));";
 				st.executeUpdate(query);
-				query = "INSERT INTO " + tableName + factorArray[i] + " SELECT div(" + xAttribute + "," + factorArray[i] * spacing + ")*" +
-					factorArray[i] * spacing + ", avg(" + yAttribute + "), min(" + yAttribute + "), max(" + yAttribute + ") FROM " + tableName +
-					" GROUP BY div("+xAttribute+","+factorArray[i]*spacing+");";
+				query = "INSERT INTO " + tableName + factor + " SELECT div(" + xAttribute + "," + factor * spacing + ")*" +
+					factor * spacing + ", avg(" + yAttribute + "), min(" + yAttribute + "), max(" + yAttribute + ") FROM " + tableName +
+					" GROUP BY div("+xAttribute+","+factor*spacing+");";
 				st.executeUpdate(query);
 			}
+
+			int[] factorArray = new int[counter];
+			for(int i = qtdPoints/(maxResolution*20), counter = 0; i>=25; i = 1/2, counter++)
+				factorArray[counter] = i; 
+
 		} catch (SQLException e) {
 			e.printStackTrace();
 		} 
@@ -126,6 +146,9 @@ public class PreAgregates{
 				break;
 			}
 		}
+		usedFactor = 50;
+
+		//usedFactor = 100;
 
 		System.out.print("True factor: " + factor + ", " + usedFactor + ";");
 
