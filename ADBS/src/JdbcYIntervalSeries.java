@@ -186,7 +186,7 @@ public class JdbcYIntervalSeries extends YIntervalSeries {
 		if (start < ds_start || start > ds_start+ds_extent || 
 				start+extent > ds_start+ds_extent ||
 				factor < ds_factor/2 || factor > ds_factor*2 ) {
-			System.out.print("update with start, extent, factor, querytime: "
+			System.out.print("update with start, extent, factor, truefactor, preagregate, querytime: "
 							 + start + "," + extent + "," + factor + "\n");
 			this.data.clear();
 			
@@ -197,11 +197,14 @@ public class JdbcYIntervalSeries extends YIntervalSeries {
 				return; 
 			Statement st;
 			try {
-				// this corresponds to min and max
+				//the preagregate generate the query string to be executed
 				if(preAgregates == null)
-					preAgregates = PreAgregates.create(con, PreAgregates.MinimumMutiplesApproach,
-							0.1, xAttribute, yAttribute, tableName, 60, MAX_RESOLUTION);
-				String query = preAgregates.createStatement(start,extent);
+					preAgregates = PreAgregates.create(con, xAttribute, yAttribute, tableName, MAX_RESOLUTION);
+				String query;
+				if(preAgregates == null)
+					query = ";";
+				else 
+					query = preAgregates.createStatement(start,extent,factor);
 
 				st = con.createStatement();
 				long starttime = System.currentTimeMillis();
