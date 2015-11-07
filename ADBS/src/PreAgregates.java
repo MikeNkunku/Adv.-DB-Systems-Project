@@ -14,84 +14,155 @@ public class PreAgregates{
 	int spacing;
 	long xStart, maxResolution;
 
-	public static PreAgregates create(Connection con, int algorithm, double spaceLimit, String xAttribute, 
-			String yAttribute, String tableName, int spacing, int maxResolution) {
-		int factorMax = Integer.MAX_VALUE;
+	public static PreAgregates create(Connection con, String xAttribute, 
+			String yAttribute, String tableName, int maxResolution) {
+		int qtdPoints;
+		int pointI, pointII;
+		int spacing;
 		Statement st;
 		String query;
-		long xStart = 0;
-		int[] factorArray = {1, 50, 75, 100, 300, 500};
+		long xStart;
+		int[] factorArray;
 		
 		try {
-			// Find the maximum possible factor
-			st = con.createStatement();
-			query = "SELECT COUNT(*) FROM " + tableName + ";";
-			ResultSet rs = st.executeQuery(query);
-			if (rs.next())
-				factorMax = (int) (rs.getInt(1) / maxResolution);
-			factorMax = 3000; // Why testing rs if factorMax will still have that value ?
-			
+			// Finds the number of rows in the table
+			qtdPoints = numberOfTablePoints(con, tableName, maxResolution);
+
+			//Checks if the table is clustered on the xAttribute
+			clusterTable(con, tableName, xAttribute);
+
+			//Calculate the spacing betewen two points
+			spacing = calculateSpacing(con, tableName, xAttribute);
+
+			//Look for the smallest value of xAttribute
+			xStart = getXStart(con, tableName, xAttribute);
+
+			//Delete any prior preagregates
+			deletePreagregates(con, tableName);
+
 			// Create the Preagregate Tables
-			for (int i = 1; i < factorArray.length; i++) {
-				st = con.createStatement();
-				query = "SELECT " + xAttribute + " FROM " + tableName + " ORDER BY " + xAttribute + " LIMIT 1";
-				if (rs.next())
-					xStart = rs.getLong(1);
-				query = "CREATE TABLE " + tableName + factorArray[i] + "(timed bigint, average numeric(10,3), min_value numeric(10,3), max_value numeric(10,3));";
-				st.executeUpdate(query);
-				query = "INSERT INTO " + tableName + factorArray[i] + " SELECT div(" + xAttribute + "," + factorArray[i] * spacing + ")*" +
-					factorArray[i] * spacing + ", avg(" + yAttribute + "), min(" + yAttribute + "), max(" + yAttribute + ") FROM " + tableName +
-					" GROUP BY div("+xAttribute+","+factorArray[i]*spacing+");";
-				st.executeUpdate(query);
-			}
-		} catch (SQLException e) {
+			factorArray = createPreagregates(con, xAttribute, yAttribute, tableName, spacing, qtdPoints);
+		} catch (Exception e) {
 			e.printStackTrace();
+			System.out.println(e.getMessage());
+			return null;
 		} 
 		
-		return new PreAgregates(factorArray, spaceLimit, xAttribute, yAttribute, tableName, spacing, xStart, maxResolution);
+		return new PreAgregates(factorArray, xAttribute, yAttribute, tableName, spacing, xStart, maxResolution);
 	}
 
-	private static int[] minimumMutiplesApproach(double spaceLimit, int[] expectedQuerrys,int factorMax, int[] factors,  int depth, long prevCost) {
-		Integer prevFactors = null;
-		long cost;
-		int start;
-		
-		if (depth == 0)
-			start =  (int) (1 / spaceLimit);
+	private static int numberOfTablePoints (Connection con, String tableName, int maxResolution) throws Exception
+	{
+		int qtdPoints;
+		Statement st = con.createStatement();
+		String query = "SELECT COUNT(*) FROM " + tableName + ";";
+		ResultSet rs = st.executeQuery(query);
+		if (rs.next())
+			qtdPoints = (int) (rs.getInt(1) / maxResolution);
 		else
-			start = (int) (((double) factors[1])*Math.pow( ( (((double) factors[1] )*spaceLimit) / (((double) factors[1] )*spaceLimit - 1) ), depth));
+			throw new Exception("Couldn't count the number of rows of "+tableName+".\n");
 
+		return qtdPoints;
+	}
 
-		for (int i = start; i < factorMax; i++) {
-			cost = 0;
-			factors[depth+1] = i;
-
-			for (int querryCounter = 0; querryCounter < expectedQuerrys.length; querryCounter++)
-				for (int factorCounter = depth + 1; factorCounter >= 0; factorCounter--)
-					if (expectedQuerrys[querryCounter] % factors[factorCounter] == 0) {
-						cost = cost + expectedQuerrys[querryCounter] / factors[factorCounter];
-						break;
-					}
-
-			if (cost < prevCost) {
-				prevFactors =  factors[depth+1];
-				prevCost =  cost;
+	private static void clusterTable(Connection con, String tableName, String xAttribute) throws Exception
+	{
+		//Checks if the table is clustered on the xAttribute
+		String query = "SELECT Count(*) FROM pg_class t, pg_class i, pg_index ix, pg_attribute a WHERE t.oid = ix.indrelid AND i.oid = ix.indexrelid AND a.attrelid = t.oid "+
+		"AND a.attnum = ANY(ix.indkey) AND t.relkind = 'r' AND t.relname = '"+tableName+"' AND a.attname = '"+xAttribute+"';";
+		Statement st = con.createStatement();
+		ResultSet rs = st.executeQuery(query);
+		if (rs.next())
+		{
+			int qtdIndex = rs.getInt(1);
+			if (qtdIndex == 0)
+			{
+				query = "CREATE INDEX "+tableName+"_xatributeIndex ON "+tableName+" ("+xAttribute+");";
+				st.executeUpdate(query);
 			}
 		}
+		else
+			throw new Exception("Couldn't count the number of rows indexs of "+tableName+" on "+xAttribute+".\n");
+		//Now it cluster the table on the xAtribute
+		query = "CLUSTER "+tableName+" USING "+tableName+"_xatributeIndex;";
+		st.executeUpdate(query);
+	}
 
-		if (prevFactors == null) {
-			int[] answer = new int[depth+1];
-			for (int i = 0; i <= depth; i++)
-				answer[i] = factors[i];
-			return answer; 
-		} else {
-			factors[depth+1] = prevFactors; 
-			
-			return minimumMutiplesApproach(spaceLimit, expectedQuerrys, factorMax, factors, depth+1, prevCost);
+	private static int calculateSpacing(Connection con,String tableName,String xAttribute) throws Exception
+	{
+		//Calculate the spacing betewen two points
+		int pointI, pointII;
+		String query = "SELECT "+xAttribute+" FROM "+tableName+" ORDER BY "+xAttribute+" ASC LIMIT 2;";
+		Statement st = con.createStatement();
+		ResultSet rs = st.executeQuery(query);
+		if (rs.next())
+			 pointI = (int) rs.getInt(1);
+		else
+			throw new Exception("Couldn't read the first row of "+tableName+".\n");
+		if (rs.next())
+			 pointII = (int) rs.getInt(1);
+		else
+			throw new Exception("Couldn't read the second row of "+tableName+".\n");
+		return pointII - pointI;
+	}
+
+	//Look for the smallest value of xAttribute
+	private static int getXStart(Connection con, String tableName, String xAttribute) throws Exception
+	{
+		String query = "SELECT "+xAttribute+" FROM "+tableName+" ORDER BY "+xAttribute+" ASC LIMIT 1;";
+		Statement st = con.createStatement();
+		ResultSet rs = st.executeQuery(query);
+		if (rs.next())
+			return (int) rs.getInt(1);
+		else
+			throw new Exception("Couldn't read the first row of "+tableName+".\n");
+	}
+
+	private static void deletePreagregates(Connection con, String tableName) throws SQLException
+	{		
+		Statement st = con.createStatement();
+		Statement st2 = con.createStatement();
+		String query = "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name LIKE '"+tableName+"pa%';";
+		ResultSet rs = st.executeQuery(query);		
+		while (rs.next())
+		{
+			String prioPreagregateName = (String) rs.getString(1);
+			query ="DROP TABLE "+prioPreagregateName+";";
+			st2.executeUpdate(query);
 		}
 	}
 
-	private PreAgregates(int[] factors,double spaceLimit,String xAttribute,String yAttribute,String tableName,int spacing, long xStart, long maxResolution) {
+
+	private static int[] createPreagregates(Connection con, String xAttribute, String yAttribute, String tableName, int spacing, int qtdPoints) throws SQLException
+	{
+		int counter;
+		int factor;
+		Statement st = con.createStatement();
+		String query;
+		for (factor = 20, counter = 0; factor*20 <= qtdPoints; factor = factor*2, counter++)
+		{
+			//To make this valid for every table it is necessary to make type independent. So it is not possible to hardcode average numeric(10,3) for example
+			query = "CREATE TABLE " + tableName +"pa"+  factor + "("+xAttribute +" bigint, average numeric(10,3), min_value numeric(10,3), max_value numeric(10,3));";
+			st.executeUpdate(query);
+			query = "INSERT INTO " + tableName +"pa"+ factor + " SELECT div(" + xAttribute + "," + factor * spacing + ")*" +
+				factor * spacing + ", avg(" + yAttribute + "), min(" + yAttribute + "), max(" + yAttribute + ") FROM " + tableName +
+				" GROUP BY div("+xAttribute+","+factor*spacing+"); "+
+				"CREATE INDEX "+tableName+"pa"+factor+"_xatributeIndex ON "+tableName+"pa"+factor+" ("+xAttribute+"); "+
+				"CLUSTER "+tableName+"pa"+factor+" USING "+tableName+"pa"+factor+"_xatributeIndex;";
+			st.executeUpdate(query);
+		}
+
+		//Here we save the factors on an array to pass to the method PreAgregates
+		//There will be a problem here if the table has less than 12000 points, because counter will be zero
+		int[] factorArray = new int[counter];
+		for(int i = 20, ii = counter-1; i*20 <= qtdPoints; i = i*2, ii--)
+			factorArray[ii] = i;
+
+		return factorArray;
+	}
+
+
+	private PreAgregates(int[] factors,String xAttribute,String yAttribute,String tableName,int spacing, long xStart, long maxResolution) {
 		this.factors = factors;
 		this.spaceLimit = spaceLimit;
 		this.xAttribute = xAttribute;
@@ -102,40 +173,40 @@ public class PreAgregates{
 		this.maxResolution = maxResolution;
 	}
 
-	public String createStatement(long start, long extent) {
-		// Calculate how many points there is in the query
-		long begining = start - extent,
-			end = start + extent*2,
-			qtdPoints, factor,
-			qi = (begining - xStart) / spacing,
-			ri = (begining - xStart) % spacing,
-			qii = (end - xStart) / spacing,
-			rii = (end - xStart) % spacing;
-
-		if (ri != 0)
-			qtdPoints = qii - qi;
-		else
-			qtdPoints = qii - qi + 1;
-
-		factor = (long) Math.floor(((double) qtdPoints)/((double) maxResolution*3) );
-
+	private int bestFactor(int trueFactor)
+	{
 		int usedFactor = 1;
-		for (int i = factors.length - 1; i >= 0; i--) {
-			if (((double)(factor%factors[i]))/((double)factor) < 0.1) {
+
+		//Handling the special case of small factors. When they are big enoght to be slow, but not big enougth use 
+		//preagregates acording to the normal rule. In this case we abuse the smallest of the preagregates.
+		if( trueFactor > 2 * factors[factors.length-1] )
+			usedFactor = factors[factors.length-1];
+
+		//This checks wether the factor of the array is ate least ten times smaller than the trueFactor
+		//If it is then this is the factor that should be used
+		for(int i=0; i < factors.length; i++)
+			if(trueFactor > factors[i]*10)
+			{
 				usedFactor = factors[i];
 				break;
 			}
-		}
 
-		System.out.print("True factor: " + factor + ", " + usedFactor + ";");
+		return usedFactor; 
+	}
 
+	public String createStatement(long start, long extent, long factor) {
+		int trueFactor = (int) factor/spacing;
+		int usedFactor = bestFactor(trueFactor);
+
+		//Generate the querry string and print what would be the true factor and the used preagregate.
+		System.out.print("," + trueFactor + "," + usedFactor );
 		if (usedFactor != 1)
-			return "select div(" + xAttribute +"," + factor * spacing +"), avg(average), min(min_value), max(max_value) from "+ tableName + usedFactor +" where " +
+			return "select div(" + xAttribute +"," + factor +"), avg(average), min(min_value), max(max_value) from "+ tableName +"pa"+ usedFactor +" where " +
 				xAttribute + ">=" + (start - extent) + " and " + xAttribute + " <= " + (start + 2 * extent) + " group by div(" + xAttribute + "," +
-				factor * spacing+")";
+				factor +");";
 		else
-			return "select div(" + xAttribute + "," + factor * spacing +"), avg(" + yAttribute + "), min(" + yAttribute + "), max(" + yAttribute+") from " +
+			return "select div(" + xAttribute + "," + factor +"), avg(" + yAttribute + "), min(" + yAttribute + "), max(" + yAttribute+") from " +
 				tableName + " where " + xAttribute + ">=" + (start - extent) +" and "+xAttribute + " <= " + (start + 2 * extent) + " group by div(" +
-				xAttribute +"," + factor * spacing + ")";
+				xAttribute +"," + factor + ");";
 	}
 }
