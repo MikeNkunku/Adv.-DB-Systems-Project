@@ -197,9 +197,8 @@ public class JdbcYIntervalSeries extends YIntervalSeries {
 				return; 
 			Statement st;
 			try {
-				//the preagregate generate the query string to be executed
-				if(preAgregates == null)
-					preAgregates = PreAgregates.create(con, xAttribute, yAttribute, tableName, MAX_RESOLUTION);
+				preAgregates = PreAgregates.getInstance(con, xAttribute, yAttribute, 
+						tableName, MAX_RESOLUTION);
 				String query;
 				if(preAgregates == null)
 					query = ";";
