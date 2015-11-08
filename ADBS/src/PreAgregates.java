@@ -243,7 +243,7 @@ public class PreAgregates {
 		int usedFactor = bestFactor(trueFactor);
 
 		//Generate the querry string and print what would be the true factor and the used preagregate.
-		System.out.print("," + trueFactor + "," + usedFactor );
+		System.out.print(", true factor:  "+ trueFactor + ", used factor: " + usedFactor + ", " );
 		if (usedFactor != 1)
 			return "select div(" + xAttribute +"," + factor +"), avg(average), min(min_value), max(max_value) from "+ tableName +"pa"+ usedFactor +" where " +
 				xAttribute + ">=" + (start - extent) + " and " + xAttribute + " <= " + (start + 2 * extent) + " group by div(" + xAttribute + "," +

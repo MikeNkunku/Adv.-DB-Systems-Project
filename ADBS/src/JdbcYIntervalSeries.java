@@ -186,8 +186,8 @@ public class JdbcYIntervalSeries extends YIntervalSeries {
 		if (start < ds_start || start > ds_start+ds_extent || 
 				start+extent > ds_start+ds_extent ||
 				factor < ds_factor/2 || factor > ds_factor*2 ) {
-			System.out.print("update with start, extent, factor, truefactor, preagregate, querytime: "
-							 + start + "," + extent + "," + factor + "\n");
+			System.out.print("update with start: "+ start +", extent: " + extent 
+						   + ", factor: " + factor );
 			this.data.clear();
 			
 			// load the data
@@ -209,7 +209,7 @@ public class JdbcYIntervalSeries extends YIntervalSeries {
 				long starttime = System.currentTimeMillis();
 				// System.out.println(query);
 				ResultSet rs = st.executeQuery(query);
-				System.out.println(","+(System.currentTimeMillis()-starttime));
+				System.out.println("query time: "+(System.currentTimeMillis()-starttime) + " ");
 				long prevTime=0;
 				while(rs.next()){
 					long timed = rs.getLong(1)*factor;
