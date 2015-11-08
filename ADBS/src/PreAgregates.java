@@ -183,7 +183,7 @@ public class PreAgregates {
 		int factor;
 		Statement st = con.createStatement();
 		String query;
-		for (factor = 20, counter = 0; factor*20 <= qtdPoints; factor = factor*2, counter++)
+		for (factor = 20, counter = 0; factor*10<= qtdPoints; factor = factor*2, counter++)
 		{
 			//To make this valid for every table it is necessary to make type independent. So it is not possible to hardcode average numeric(10,3) for example
 			query = "CREATE TABLE " + tableName+"pa"+factor + "("+xAttribute +" bigint, average numeric(10,3), min_value numeric(10,3), max_value numeric(10,3));";
@@ -199,7 +199,7 @@ public class PreAgregates {
 		//Here we save the factors on an array to pass to the method PreAgregates
 		//There will be a problem here if the table has less than 12000 points, because counter will be zero
 		int[] factorArray = new int[counter];
-		for(int i = 20, ii = counter-1; i*20 <= qtdPoints; i = i*2, ii--)
+		for(int i = 20, ii = counter-1; i*10<= qtdPoints; i = i*2, ii--)
 			factorArray[ii] = i;
 
 		return factorArray;
@@ -222,7 +222,7 @@ public class PreAgregates {
 		//This checks wether the factor of the array is ate least ten times smaller than the trueFactor
 		//If it is then this is the factor that should be used
 		for(int i=0; i < factors.length; i++)
-			if(trueFactor > factors[i]*10)
+			if(trueFactor > factors[i]*5)
 			{
 				usedFactor = factors[i];
 				break;
