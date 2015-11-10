@@ -6,13 +6,13 @@ import java.sql.Statement;
 
 public class PreAgregates {
 	
-	// implement the singleton pattern to make sure only one instance of this class is created
+	// Implementation of the Singleton design pattern to make sure only one instance of this class is created
 	private static PreAgregates instance = null;
 	
-	// private variables
-	private int[] factors;		// the list of existing preagregate factors
-	private String xAttribute, yAttribute, tableName;	// database metadata
-	private int spacing;		// the space between two points in the dataset
+	// Private variables
+	private int[] factors;		// The list of existing preagregate factors
+	private String xAttribute, yAttribute, tableName;	// Database metadata
+	private int spacing;		// Space between two points in the dataset
 	
 	
 	/**
@@ -29,7 +29,7 @@ public class PreAgregates {
 	}
 	
 	/**
-	 * get the unique instance of PreAgregates
+	 * Get the unique instance of PreAgregates
 	 */
 	public static PreAgregates getInstance (Connection con, String xAttribute, 
 			String yAttribute, String tableName, int maxResolution) {
@@ -42,7 +42,7 @@ public class PreAgregates {
 	}
 
 	/**
-	 * create a new instance of PreAgregate class
+	 * Create a new instance of PreAgregate class
 	 * @param con
 	 * @param xAttribute
 	 * @param yAttribute
@@ -53,15 +53,15 @@ public class PreAgregates {
 	private static PreAgregates create(Connection con, String xAttribute, 
 			String yAttribute, String tableName, int maxResolution) {
 		
-		int pointWeight;	// the number of data entries represented by one point
-		int spacing;		// the space between two points in the dataset
-		int[] factorArray;	// the different preagregate factor present in database
+		int pointWeight;	// The number of data entries represented by one point
+		int spacing;		// Space between two points in the dataset
+		int[] factorArray;	// The different preagregate factors present in database
 		
 		try {
 			pointWeight = numberOfDataRowsPerPoints(con, tableName, maxResolution);  // Finds the number of rows in the table
-			clusterTable(con, tableName, xAttribute);  //Checks if the table is clustered on the xAttribute
-			spacing = calculateSpacing(con, tableName, xAttribute);  //Calculate the spacing between two points
-			deletePreagregates(con, tableName);  //Delete any existing PreAgregates
+			clusterTable(con, tableName, xAttribute);  // Checks whether the table is clustered on the xAttribute
+			spacing = calculateSpacing(con, tableName, xAttribute);  // Calculate the spacing between two points
+			deletePreagregates(con, tableName);  // Delete any existing PreAgregates
 			factorArray = createPreagregates(con, xAttribute, yAttribute, tableName, spacing, pointWeight);  // Create the PreAgregate Tables
 		} catch (SQLException e) {
 			e.printStackTrace();
@@ -73,7 +73,7 @@ public class PreAgregates {
 	}
 
 	/**
-	 * retrieve the number of data represented in one point
+	 * Retrieve the number of data represented in one point
 	 * @param con			: the database connection
 	 * @param tableName		: the table name
 	 * @param maxResolution	: the number of points displayed in the plot
@@ -101,7 +101,7 @@ public class PreAgregates {
 	private static void clusterTable(Connection con, String tableName, String xAttribute) 
 			throws SQLException
 	{
-		//Checks if the table is clustered on the xAttribute
+		// Checks whether the table is clustered on the xAttribute
 		String query = "SELECT Count(*) FROM pg_class t, pg_class i, pg_index ix, pg_attribute a WHERE t.oid = ix.indrelid AND i.oid = ix.indexrelid AND a.attrelid = t.oid "+
 		"AND a.attnum = ANY(ix.indkey) AND t.relkind = 'r' AND t.relname = '"+tableName+"' AND a.attname = '"+xAttribute+"';";
 		Statement st = con.createStatement();
@@ -115,13 +115,13 @@ public class PreAgregates {
 			st.executeUpdate(query);
 		}
 
-		//Now cluster the table on the xAtribute
+		// Now cluster the table on the xAtribute
 		query = "CLUSTER "+tableName+" USING "+tableName+"_"+xAttribute+"Index;";
 		st.executeUpdate(query);
 	}
 
 	/**
-	 * compute the spacing between two points
+	 * Compute the spacing between two points
 	 * @param con
 	 * @param tableName
 	 * @param xAttribute
@@ -145,7 +145,7 @@ public class PreAgregates {
 	}
 	
 	/**
-	 * delete a preagregate table
+	 * Delete a preagregate table
 	 * @param con
 	 * @param tableName
 	 * @throws SQLException
@@ -166,7 +166,7 @@ public class PreAgregates {
 	}
 
 	/**
-	 * create a preagregate table
+	 * Create a preagregate table
 	 * @param con
 	 * @param xAttribute
 	 * @param yAttribute
@@ -185,7 +185,7 @@ public class PreAgregates {
 		String query;
 		for (factor = 20, counter = 0; factor*10<= qtdPoints; factor = factor*2, counter++)
 		{
-			//To make this valid for every table it is necessary to make type independent. So it is not possible to hardcode average numeric(10,3) for example
+			// To make this valid for every table, it is necessary to make type independent. Therefore, it is not possible to hardcode average numeric(10,3) for example
 			query = "CREATE TABLE " + tableName+"pa"+factor + "("+xAttribute +" bigint, average numeric(10,3), min_value numeric(10,3), max_value numeric(10,3));";
 			st.executeUpdate(query);
 			query = "INSERT INTO " + tableName+"pa"+factor + " SELECT div(" + xAttribute + "," + factor * spacing + ")*" +
@@ -196,8 +196,8 @@ public class PreAgregates {
 			st.executeUpdate(query);
 		}
 
-		//Here we save the factors on an array to pass to the method PreAgregates
-		//There will be a problem here if the table has less than 12000 points, because counter will be zero
+		// Here we save the factors in an array to pass them to the PreAgregates method
+		// There will be a problem here if the table has less than 12000 points since counter will be zero
 		int[] factorArray = new int[counter];
 		for(int i = 20, ii = counter-1; i*10<= qtdPoints; i = i*2, ii--)
 			factorArray[ii] = i;
@@ -206,7 +206,7 @@ public class PreAgregates {
 	}
 	
 	/**
-	 * choose the best factor for a given zoom
+	 * Choose the best factor for a given zoom
 	 * @param trueFactor
 	 * @return
 	 */
@@ -214,13 +214,13 @@ public class PreAgregates {
 	{
 		int usedFactor = 1;
 
-		//Handling the special case of small factors. When they are big enoght to be slow, but not big enougth use 
-		//preagregates acording to the normal rule. In this case we abuse the smallest of the preagregates.
+		// Handling the special case of small factors. When they are big enough to be slow, but not big enough use 
+		// Preagregates according to the normal rule. In this case, we use the smallest of the preagregates.
 		if( trueFactor > 2 * factors[factors.length-1] )
 			usedFactor = factors[factors.length-1];
 
-		//This checks wether the factor of the array is ate least ten times smaller than the trueFactor
-		//If it is then this is the factor that should be used
+		// This checks whether the factor of the array is at least ten times smaller than the trueFactor
+		// If it is, then this is the factor that should be used.
 		for(int i=0; i < factors.length; i++)
 			if(trueFactor > factors[i]*5)
 			{
@@ -232,7 +232,7 @@ public class PreAgregates {
 	}
 	
 	/**
-	 * create a SQL statement using the best preagregate
+	 * Create an SQL statement using the best preagregate
 	 * @param start
 	 * @param extent
 	 * @param factor
@@ -242,7 +242,7 @@ public class PreAgregates {
 		int trueFactor = (int) factor/spacing;
 		int usedFactor = bestFactor(trueFactor);
 
-		//Generate the querry string and print what would be the true factor and the used preagregate.
+		// Generate the query string and print what would be the true factor and the used preagregate.
 		System.out.print(", true factor:  "+ trueFactor + ", used factor: " + usedFactor + ", " );
 		if (usedFactor != 1)
 			return "select div(" + xAttribute +"," + factor +"), avg(average), min(min_value), max(max_value) from "+ tableName +"pa"+ usedFactor +" where " +
